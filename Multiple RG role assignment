@@ -1,0 +1,37 @@
+# Import the required module for Excel parsing (if not using CSV)
+# If you export as CSV, you can use Import-Csv directly
+# Install-Module -Name ImportExcel -Scope CurrentUser # Optional, for .xlsx files
+
+# Parameters
+$csvPath = "resourceGroups.csv"  # Replace with your file path
+$userObjectId = "<user-object-id>"  # Replace with the user's object ID
+$roleName = "Contributor"          # Replace with the desired role
+
+# If using userPrincipalName (email) instead of objectId, use -SignInName parameter in New-AzRoleAssignment
+
+# Import the CSV (assuming columns: SubscriptionId, ResourceGroupName)
+$resourceGroups = Import-Csv -Path $csvPath
+
+foreach ($rg in $resourceGroups) {
+    $subscriptionId = $rg.SubscriptionId
+    $resourceGroupName = $rg.ResourceGroupName
+
+    # Select the subscription
+    try {
+        Set-AzContext -Subscription $subscriptionId
+    }
+    catch {
+        Write-Error "Could not set context to subscription $subscriptionId. Error: $_"
+        continue
+    }
+
+    # Assign the role
+    $scope = "/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName"
+    try {
+        New-AzRoleAssignment -ObjectId $userObjectId -RoleDefinitionName $roleName -Scope $scope
+        Write-Host "Assigned $roleName at $scope to user $userObjectId"
+    }
+    catch {
+        Write-Error "Failed to assign role at $scope. Error: $_"
+    }
+}
